@@ -1,0 +1,247 @@
+
+Lesson 2
+--------------------------
+
+Big Data: When you don't use a single machine anymore
+
+Hardware Capabilities - Numbers everyone should know:
+
+[ Fastest to slowest ]
+CPU - How long does it take to add two numbers: ~ 0.4ns                                   200x faster than Mem
+Memory - How long to lookup an appointment in cached Memory: 100ns			  15x faster than SSD
+SSD - How long to load song from my SSD Storage: 16micros				  20x faster than Network
+Network - How much data can you download from Netflix in a minute: 150ms
+
+
+CPU:
+6K tweet / sec -> 200 bytes / tweet -> 1.2M bytes / second
+CPU: 2.5B ops / second (= 2.5 GHz)
+
+Live character count of tweets would take just 0.01% of one of my Laptops CPUs
+
+
+
+A 2.5 Gigahertz CPU means that the CPU processes 2.5 billion operations per second. Let's say that for each operation, the CPU processes 8 bytes of data. How many bytes could this CPU process per second?
+> 20B Bytes/sec
+
+Twitter generates about 6,000 tweets per second, and each tweet contains 200 bytes. So in one day, Twitter generates data on the order of:
+(6000 tweets / second) x (86400 seconds / day) x (200 bytes / tweet) = 104 billion bytes / day
+Knowing that tweets create approximately 104 billion bytes of data per day, how long would it take the 2.5 GigaHertz CPU to analyze a full day of tweets?
+> 5.2 seconds
+
+
+
+
+Memory:
+It takes ~250x longer to load sth from memory than to process it in CPU > CPU is idle most of the time
+> Always load sequentially not all at once
+
+Characteristics:
+- Efficient
+- Ephemeral - Gone if you shut down
+- Expensive
+
+
+
+Storage:
+SSD: ~15x slower than Memory
+Magneitc Disk: ~200x slower
+
+
+
+Network:
+- Has improved the least in speed of the 4
+- The bottleneck
+- Spark tries to minimize shuffling data across networks
+
+
+
+Medium Numbers: Even if a dataset is bigger than RAM, you may process it by e.g. splitting it up in parts, sorting them, then reading the first line of eachfile & write it out to a new file sorted
+
+Parallel Computing: Multiple Comps, same Memory
+Distributed Computing: Multiple Comps with own memory ; Connected via Network
+
+
+Hadoop Framework:
+HDFS - Data Storage
+MAP Reduce - Data Processing (Written to Disk!)
+YARN - Resource Manager
+Hadoop Common - Utilities
+
+Apache Hive / Pig - SQL for Map Reduce
+
+> Map Reduce is too slow as it writes to disk >>> Spark!
+
+Spark combines multiple "Reduces" in memory
+
+Streaming Data:
+- Store & Analyze Data in Real-time - e.g. Tweets
+- Apache Storm & Apache Flink faster than Spark Streaming
+
+
+Spark Use Cases:
+Dashboards & Visualization
+ETL: Extract Transform Load
+Machine Learning
+Especially iterative algos like Logistic Regression, Page Rank
+
+
+Limits:
+- Speedups vs Hadoop may be small
+- Only supports ML algos scaling linearly with data inputs
+
+
+
+
+Data Wrangling - Lesson 3
+------------------------------------------------------
+
+- Spark is written in Scala
+- Functional programming is more suitable because:
+	- Only gives one answer for an input
+	- Inputs of function are predefined
+	- "pure functions" - not alter anything out of their scope
+
+- Lazy Evaluation: Directed Acyclical Graph
+
+
+SparkContext: Entry point for Spark Functionality
+SparkConf: Necessary configuration for Spark
+SparkSession: SQL-like interface to Spark
+
+
+Manipulating Data:
+> Imperative: Spark DFs & Python
+	> Important: How?
+> Declarative: SQL
+	> Important: What?
+
+
+Similar Syntax as pandas but with camel case
+
+
+> Both PySpark & SQL get translated into RDD under the hodd so similar performance
+> RDDs - Resilient Distributed Dataset 
+	> If How, how?, i.e. you need more flexibility, you can directly deal with RDDs
+	> More complex & harder to optimize
+
+ 
+
+
+
+Spark Clusters with AWS - Lesson 4
+------------------------------------------------------
+
+
+3 options for working on a cluster:
+- Standalone Mode
+- Mesos (Good for teams)
+- YARN (Good for teams)
+
+
+Local mode means Spark is running on your local machine. Standalone mode is distributed and uses resource management like Yarn or Mesos.
+
+
+Spark has no file distribution system, but can use HDFS (Hadoop Distributed File System)
+
+Setting up Spark on several EC2 is very time consuming >>> AWS EMR - Elastic Map Reduce
+
+
+
+AWS Setup:
+
+- Create EMR - 3 mxlarge ; 5.20.0
+- Create IAM Admin with Prog Access
+- Create EC2 key value pair -- .pem
+- Configure AWS CLI
+
+Optional Programmatic cluster creation
+- aws emr create-cluster --name <cluster_name> \
+ --use-default-roles --release-label emr-5.28.0  \
+--instance-count 3 --applications Name=Spark Name=Zeppelin  \
+--bootstrap-actions Path="s3://bootstrap.sh" \
+--ec2-attributes KeyName=<Key-pair-file-name>, SubnetId=<subnet-Id> \
+--instance-type m5.xlarge --log-uri s3:///emrlogs/
+
+
+- Create a Notebook in the EMR GUI & connect it to the cluster & key value pair
+- S3 stores files in binary so anything is fine
+- HDFS wants .parquet / .avro files
+
+
+
+
+
+
+
+Debugging Lesson 5
+------------------------------------------------
+
+
+
+- You may get Java / Scala / JVM referencing errors in PySpark
+- Print statements don't work because they will run on the Worker Nodes, but not the master node > You need to send it back to the master node
+>>> Use Acccumulators & Logger
+	- Need to be careful as they will still increment if collecting twice
+
+- Workers run in parallel but asynchronously
+
+
+
+- Broadcasts: Store & Cache read-only variables on Worker nodes
+
+- Spark WebUI - Measure issues in code & cluster - Post 8080
+
+
+- Spark Function Types
+	- Transformations > Lazy evaluated
+	- Actions > Triggers lazy evaluated funcs
+
+
+df = spark.read.load("some csv file")
+df1 = df.select("some column").filter("some condition")
+df1.write("to path")
+
+> select and filter are transformation functions, and write is an action function.
+> only executes when calling write
+
+
+Big Data Problems:
+
+- Data Skewness - Most of the data comes from a small number of classes - e.g. 80% of data from 20% of users (Pareto Principle)
+Identify: Run a quick count spark job with just 5% of your data
+Solve: 
+	Divide data by a different field which may be less skewed (e.g. timefield instead of userid)
+	Partition data into smaller pieces (spark_df.repartition())
+
+
+
+Spark Machine Learning Lesson 6
+--------------------------------------------
+
+- Similar interface to sklearn
+- Few support for Unsupervised Algorithms
+- show() vs collect() > Show does not return the value; Both execute the transformation chain
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
